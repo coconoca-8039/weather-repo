@@ -7,17 +7,20 @@
 set -u
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd) || exit 1
-SECRETS_FILE="$SCRIPT_DIR/../secrets.env"
 
-if [ ! -r "$SECRETS_FILE" ]; then
-    echo "Secret file not found or unreadable: $SECRETS_FILE" >&2
-    exit 1
+if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+    SECRETS_FILE="$SCRIPT_DIR/../secrets.env"
+
+    if [ ! -r "$SECRETS_FILE" ]; then
+        echo "Secret file not found or unreadable: $SECRETS_FILE" >&2
+        exit 1
+    fi
+
+    set -a
+    # shellcheck source=/dev/null
+    source "$SECRETS_FILE"
+    set +a
 fi
-
-set -a
-# shellcheck source=/dev/null
-source "$SECRETS_FILE"
-set +a
 
 cd "$SCRIPT_DIR" || exit 1
 

@@ -1,0 +1,9 @@
+herbie-data
+xarray
+matplotlib
+cartopy
+numpy
+scipy
+requests
+metpy
+pandas
