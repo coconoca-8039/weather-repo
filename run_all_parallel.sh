@@ -71,17 +71,17 @@ run_chart() {
 
 echo "=== Weather charts start (max $MAX_JOBS parallel jobs) ==="
 
-run_chart "ASurface.py"
-run_chart "A850hPa.py"
-run_chart "A700hPa.py"
-run_chart "A500hPa.py"
-run_chart "A300hPa.py"
-run_chart "cloud_cover.py"
-run_chart "300hPa_pacific.py"
-run_chart "vertical_temp_rh_u.py"
-run_chart "skewt.py"
-run_chart "thrtae_wind.py"
-run_chart "dewpoint_upward.py"
+run_chart "scripts/ASurface.py"
+run_chart "scripts/A850hPa.py"
+run_chart "scripts/A700hPa.py"
+run_chart "scripts/A500hPa.py"
+run_chart "scripts/A300hPa.py"
+run_chart "scripts/cloud_cover.py"
+run_chart "scripts/300hPa_pacific.py"
+run_chart "scripts/vertical_temp_rh_u.py"
+run_chart "scripts/skewt.py"
+run_chart "scripts/thrtae_wind.py"
+run_chart "scripts/dewpoint_upward.py"
 
 chart_failed=0
 i=0
@@ -101,10 +101,10 @@ fi
 echo "=== Weather charts complete ==="
 
 # Keep message order deterministic and avoid simultaneous webhook posts.
-python3 discord_jma_send.py || exit 1
-python3 discord_send.py || exit 1
-python3 discord_send_vertical.py || exit 1
-python3 wiki_weather.py || exit 1
-python3 discord_word_send.py || exit 1
+python3 scripts/discord_jma_send.py || exit 1
+python3 scripts/discord_send.py || exit 1
+python3 scripts/discord_send_vertical.py || exit 1
+python3 scripts/wiki_weather.py || exit 1
+python3 scripts/discord_word_send.py || exit 1
 
 echo "Finish"
