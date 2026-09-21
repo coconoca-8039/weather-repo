@@ -29,4 +29,6 @@ jobs:
       - name: Run weather charts
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: bash run_all_parallel.sh
+        run: |
+          mkdir -p images
+          bash run_all_parallel.sh
