@@ -105,6 +105,6 @@ python3 scripts/discord_jma_send.py || exit 1
 python3 scripts/discord_send.py || exit 1
 python3 scripts/discord_send_vertical.py || exit 1
 python3 scripts/wiki_weather.py || exit 1
-python3 scripts/discord_word_send.py || exit 1
+# python3 scripts/discord_word_send.py || exit 1
 
 echo "Finish"
