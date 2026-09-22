@@ -1,0 +1,266 @@
+Weather Discord 処理フロー・ファイル構成メモ
+==============================================
+
+このファイルの目的
+------------------
+
+このプロジェクトが「どこからデータを取得し、どのファイルで加工し、
+どのようにDiscordへ送信されるか」を後から思い出すためのメモ。
+
+
+全体の流れ
+----------
+
+NOAA GFS
+  ↓
+各PythonスクリプトがHerbie経由で最新のGFS F00データを取得
+  ↓
+xarray / NumPy / MetPyで必要な要素を抽出・計算
+  ↓
+Matplotlib / Cartopyで気象図を作成
+  ↓
+images/へPNGを保存
+  ↓
+Discord送信用Pythonスクリプトが画像や文章をWebhookへ送信
+
+一連のPythonスクリプトは、リポジトリ直下の
+
+    run_all_parallel.sh
+
+からまとめて実行する。
+
+
+開発から自動実行までの流れ
+----------------------------
+
+1. Mac上でPython、シェル、READMEなどを編集する。
+
+2. 必要に応じてMacローカルで次を実行し、動作を確認する。
+
+       bash run_all_parallel.sh
+
+3. 変更内容を確認し、GitのcommitとGitHubへのpushは手動で行う。
+
+4. pushされたファイルはGitHub上のリポジトリへ反映される。
+
+5. GitHub Actionsがリポジトリをcheckoutし、依存ライブラリを
+   requirements.txtからインストールする。
+
+6. GitHub Actionsが環境変数DISCORD_WEBHOOK_URLを設定した状態で
+   run_all_parallel.shを実行する。
+
+7. run_all_parallel.shが気象図を並列生成する。
+
+8. すべての気象図が正常に生成された場合だけ、Discordへの送信処理へ進む。
+   1つでも生成に失敗した場合はDiscord送信を行わず、エラー終了する。
+
+注意：現在の.github/workflows/weather.ymlにはpushトリガーがない。
+GitHubへpushした直後に自動実行されるわけではない。
+実行契機は次の2種類。
+
+  ・workflow_dispatch：GitHub Actions画面からの手動実行
+  ・schedule：毎日21:00 UTC（日本時間の翌日06:00）
+
+
+run_all_parallel.shの処理
+-------------------------
+
+1. スクリプト自身が置かれたディレクトリをSCRIPT_DIRとして取得する。
+
+2. Discord Webhook URLを準備する。
+
+   GitHub Actionsの場合：
+
+     Repository SecretのDISCORD_WEBHOOK_URLが、workflowから環境変数として
+     渡される。そのためsecrets.envは読み込まない。
+
+   Macローカルの場合：
+
+     DISCORD_WEBHOOK_URLが環境変数にないとき、リポジトリの一つ上にある
+     secrets.envを読み込む。
+
+       weather-discord_git/../secrets.env
+
+     secrets.envには次の形式でWebhook URLを設定する。
+
+       DISCORD_WEBHOOK_URL=...
+
+     secrets.envが存在しない、または読み取れない場合はexit 1で終了する。
+
+3. MAX_JOBS=3として、同時に最大3個の画像生成スクリプトを実行する。
+
+4. バックグラウンドで起動した各処理をPIDS / NAMESで管理し、
+   waitですべての処理が終わるまで待つ。
+
+5. 画像生成の成否を確認する。
+
+   ・すべて成功：Discord送信へ進む
+   ・1つでも失敗：Discord送信をスキップしてexit 1
+
+6. 画像生成後、次の順番でDiscord送信スクリプトを実行する。
+
+   1) scripts/discord_jma_send.py
+   2) scripts/discord_send.py
+   3) scripts/discord_send_vertical.py
+   4) scripts/wiki_weather.py
+   5) scripts/discord_word_send.py
+
+7. trapによって、終了時に合計処理時間を表示する。
+
+
+GitHub Actions側の処理
+----------------------
+
+設定ファイル：
+
+    .github/workflows/weather.yml
+
+処理順：
+
+1. Ubuntuの実行環境を起動する。
+2. actions/checkoutでリポジトリを取得する。
+3. Python 3.13をセットアップする。
+4. requirements.txtからライブラリをインストールする。
+5. 主要ライブラリをimportできるか確認する。
+6. imagesディレクトリを作成する。
+7. Repository Secretを環境変数DISCORD_WEBHOOK_URLとして渡す。
+8. bash run_all_parallel.shを実行する。
+
+GitHub Actions上でsecrets.envを生成したり、リポジトリへ保存したりはしない。
+Webhook URLはGitHubのRepository Secretだけで管理する。
+
+
+主なディレクトリとファイルの役割
+----------------------------------
+
+.github/workflows/weather.yml
+    GitHub Actionsの実行条件、Python環境の準備、依存関係のインストール、
+    run_all_parallel.shの起動を定義する。
+
+run_all_parallel.sh
+    プロジェクト全体の実行入口。
+    画像生成を最大3並列で実行し、成功後にDiscord送信を順番に実行する。
+
+requirements.txt
+    GitHub Actionsや新しいPython環境で必要になるライブラリの一覧。
+
+readme.md
+    プロジェクト概要と、生成する気象図の内容・見る観点を説明する。
+
+workflow.txt
+    処理の流れとファイルの役割を思い出すための、このメモ。
+
+scripts/
+    GFSデータの取得、気象図の生成、外部APIの取得、Discord送信を行う
+    Pythonスクリプトを格納する。
+
+images/
+    Pythonスクリプトが生成したPNG画像の保存先。
+    画像は同じファイル名で上書きされる。
+
+jupyter/
+    調査、試作、描画方法の検討に使用したJupyter Notebookを格納する。
+    通常の自動実行フローからは使用しない。
+
+weather_exam_glossary_master_55_65.csv
+    気象用語と解説のデータ。discord_word_send.pyがランダムに用語を選ぶ。
+
+../secrets.env
+    Macローカル実行用のDiscord Webhook URLを保存する。
+    Gitリポジトリの外側に置き、GitHubへpushしない。
+
+
+気象図生成スクリプト
+--------------------
+
+scripts/ASurface.py
+    海面更正気圧、高気圧・低気圧中心、10 m風を描画する。
+    出力：images/surface.png
+
+scripts/A850hPa.py
+    850 hPaの気温、ジオポテンシャル高度、風を描画する。
+    出力：images/850hPa.png
+
+scripts/A700hPa.py
+    700 hPaの相対湿度、ジオポテンシャル高度、鉛直流を描画する。
+    出力：images/700hPa.png
+
+scripts/A500hPa.py
+    500 hPaのジオポテンシャル高度と絶対渦度を描画する。
+    出力：images/500hPa.png
+
+scripts/A300hPa.py
+    日本周辺の300 hPa高度、風速、風を描画する。
+    出力：images/300hPa.png
+
+scripts/300hPa_pacific.py
+    北太平洋全体の300 hPa高度、風速、風を描画する。
+    出力：images/300hPa_pacific.png
+
+scripts/cloud_cover.py
+    日本周辺の全雲量を描画する。
+    出力：images/cloud_cover.png
+
+scripts/vertical_temp_rh_u.py
+    東経125度～155度の気温・相対湿度・東西風の鉛直断面を描画する。
+    出力：images/vertical_*E_temp_rh_u.png
+
+scripts/skewt.py
+    土浦付近の気温、露点温度、風をSkew-Tとして描画する。
+    出力：images/skewt_tsuchiura.png
+
+scripts/thrtae_wind.py
+    東経140度の相当温位・風の鉛直断面を描画する。
+    出力：images/thetae_wind_140E.png
+
+scripts/dewpoint_upward.py
+    東経140度の湿数・上昇流の鉛直断面を描画する。
+    出力：images/dewpoint_depression_upward_motion_140E.png
+
+
+Discord送信・文章生成スクリプト
+--------------------------------
+
+scripts/jma_forecast.py
+    気象庁の予報データを取得し、Discord送信用の文章を作成する。
+    discord_jma_send.pyから呼び出される。
+
+scripts/discord_jma_send.py
+    jma_forecast.pyが作成した天気予報文をDiscordへ送信する。
+
+scripts/discord_send.py
+    地上・高層天気図、雲量、北太平洋図、Skew-T、
+    相当温位・湿数断面などの画像をDiscordへ送信する。
+
+scripts/discord_send_vertical.py
+    東経125度～155度の鉛直断面画像をDiscordへ送信する。
+
+scripts/wiki_weather.py
+    気象分野のWikipedia記事を選び、リンクをDiscordへ送信する。
+
+scripts/discord_word_send.py
+    weather_exam_glossary_master_55_65.csvから気象用語をランダムに選び、
+    解説をDiscordへ送信する。
+
+
+トラブル時に最初に確認する場所
+------------------------------
+
+画像が生成されない：
+    GitHub Actionsまたはターミナルの[ERROR]表示を確認し、
+    対応するscripts/*.pyとGFSデータ取得状況を確認する。
+
+Discordへ何も届かない：
+    画像生成処理が1つでも失敗していないか確認する。
+    次にDISCORD_WEBHOOK_URLが正しく渡されているか確認する。
+
+GitHub Actionsがpush後に動かない：
+    現在はpushトリガーを設定していないため正常。
+    Actions画面から手動実行するか、毎日06:00 JSTの定期実行を待つ。
+
+Macでは動くがGitHub Actionsでは動かない：
+    Repository Secret名がDISCORD_WEBHOOK_URLと完全に一致しているか、
+    requirements.txtに必要なライブラリが含まれているかを確認する。
+
+GitHub Actionsでは動くがMacでは動かない：
+    リポジトリの一つ上にsecrets.envが存在し、読み取り可能か確認する。
