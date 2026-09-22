@@ -580,20 +580,3 @@ weather_discord/
 
 ---
 
-# 主なPythonライブラリ
-
-- Herbie
-- xarray
-- Matplotlib
-- Cartopy
-- NumPy
-- requests
-
-HerbieがGFSデータの検索・取得を担当。
-
-xarrayでGRIB2から取得した気象データを扱い、
-Matplotlib / Cartopyで地図として描画する。
-
-requestsはDiscord Webhookへの送信に使用する。
-
----
